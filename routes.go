@@ -102,7 +102,7 @@ func Login(c echo.Context) error {
 	// Verify if key is valid and update the database with the correct value for mfaenabled
 	// The key is generated from authenticator
 	if !totp.Validate(Key, strings.Split(keysfound, "-")[0]) {
-		// return c.JSON(http.StatusLocked, returnData("Login failed", ""))
+		return c.JSON(http.StatusLocked, returnData("Login failed", ""))
 	}
 
 	// Get the ID in database
@@ -141,6 +141,11 @@ func Login(c echo.Context) error {
 		sessionkey := GenerateSessionKey(Email)
 		return c.JSON(http.StatusOK, returnData("Login OK", sessionkey))
 	}
+}
+
+func Validate(c echo.Context) error {
+	key := c.Param("id")
+	return c.String(http.StatusAccepted, CheckIfExist(key))
 }
 
 // Easy function to generate data in return-

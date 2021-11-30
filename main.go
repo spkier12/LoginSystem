@@ -49,5 +49,6 @@ func main() {
 	e.GET("/Create/:email/:password", Create)
 	e.GET("/EnableMFA/:email/:key", EnableMFA)
 	e.GET("/Login/:email/:key/:id", Login)
+	e.GET("/Validate/:id", Validate)
 	e.Start(":5001")
 }
