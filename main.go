@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	_ "github.com/lib/pq"
 )
 
@@ -44,6 +45,7 @@ func main() {
 	//CreateAccountTEST()
 
 	e := echo.New()
+	e.Use(middleware.CORS())
 	e.GET("/Create/:email/:password", Create)
 	e.GET("/EnableMFA/:email/:key", EnableMFA)
 	e.GET("/Login/:email/:key/:id", Login)

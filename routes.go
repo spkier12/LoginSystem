@@ -102,8 +102,7 @@ func Login(c echo.Context) error {
 	// Verify if key is valid and update the database with the correct value for mfaenabled
 	// The key is generated from authenticator
 	if !totp.Validate(Key, strings.Split(keysfound, "-")[0]) {
-		return c.JSON(http.StatusLocked, returnData("Login failed", ""))
-
+		// return c.JSON(http.StatusLocked, returnData("Login failed", ""))
 	}
 
 	// Get the ID in database
@@ -127,11 +126,24 @@ func Login(c echo.Context) error {
 	} else {
 
 		// Check if MFA is enabled
-		return c.JSON(http.StatusOK, returnData("Login OK", GenerateSessionKey()))
+		mfaEnabled, _ := db.Query("SELECT mfaenabled FROM useraccounts.useracc WHERE email = $1", Email)
+		var mfaEnabled2 string
+		for mfaEnabled.Next() {
+			if mfaEnabled.Scan(&mfaEnabled2); err != nil {
+				return c.JSON(http.StatusLocked, returnData("Login failed", ""))
+			}
+		}
+
+		// Check if MFA is enabled else login failed
+		if mfaEnabled2 != "YES" {
+			return c.JSON(http.StatusLocked, returnData("Login failed\nPlease enable mfa", ""))
+		}
+		sessionkey := GenerateSessionKey(Email)
+		return c.JSON(http.StatusOK, returnData("Login OK", sessionkey))
 	}
 }
 
-// Easy function to generate data in return
+// Easy function to generate data in return-
 func returnData(message string, data string) string {
 	type MyData struct {
 		Message string
