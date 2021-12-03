@@ -53,17 +53,8 @@ func EnableMFA(c echo.Context) error {
 	Key := c.Param("key")
 
 	// Get the Key in database
-	rows, err := db.Query("SELECT mfakey FROM useraccounts.useracc WHERE email = $1", Email)
-	if err != nil {
-		return c.JSON(http.StatusLocked, returnData("Error in database try agen later!", ""))
-	}
-
 	var keysfound string
-	for rows.Next() {
-		if rows.Scan(&keysfound); err != nil {
-			return c.JSON(http.StatusLocked, returnData("Error trying to find email", ""))
-		}
-	}
+	db.QueryRow("SELECT mfakey FROM useraccounts.useracc WHERE email = $1", Email).Scan(&keysfound)
 
 	// Verify if key is valid and update the database with the correct value for mfaenabled
 	if totp.Validate(Key, strings.Split(keysfound, "-")[0]) {
@@ -87,60 +78,36 @@ func Login(c echo.Context) error {
 	pass := c.Param("id")
 
 	// Get the Key in database
-	rows, err := db.Query("SELECT mfakey FROM useraccounts.useracc WHERE email = $1", Email)
-	if err != nil {
-		return c.JSON(http.StatusLocked, returnData("Error in database try agen later!", ""))
-	}
-
 	var keysfound string
-	for rows.Next() {
-		if rows.Scan(&keysfound); err != nil {
-			return c.JSON(http.StatusLocked, returnData("Login failed", ""))
-		}
-	}
+	db.QueryRow("SELECT mfakey FROM useraccounts.useracc WHERE email = $1", Email).Scan(&keysfound)
 
 	// Verify if key is valid and update the database with the correct value for mfaenabled
-	// The key is generated from authenticator
 	if !totp.Validate(Key, strings.Split(keysfound, "-")[0]) {
 		return c.JSON(http.StatusLocked, returnData("Login failed", ""))
 	}
 
 	// Get the ID in database
-	rows2, err := db.Query("SELECT uid FROM useraccounts.useracc WHERE email = $1", Email)
-	if err != nil {
-		return c.JSON(http.StatusLocked, returnData("Login failed", ""))
-	}
-
-	// Loop thru until we find the data needed
 	var passfromdb string
-	for rows2.Next() {
-		if rows2.Scan(&passfromdb); err != nil {
-			return c.JSON(http.StatusLocked, returnData("Login failed", ""))
-		}
-	}
+	db.QueryRow("SELECT uid FROM useraccounts.useracc WHERE email = $1", Email).Scan(&passfromdb)
 
 	// Check agenst hashed password in db and generate a session token if valid
 	if err := bcrypt.CompareHashAndPassword([]byte(passfromdb), []byte(pass)); err != nil {
 		fmt.Print(err)
 		return c.JSON(http.StatusForbidden, returnData("Login failed", ""))
-	} else {
-
-		// Check if MFA is enabled
-		mfaEnabled, _ := db.Query("SELECT mfaenabled FROM useraccounts.useracc WHERE email = $1", Email)
-		var mfaEnabled2 string
-		for mfaEnabled.Next() {
-			if mfaEnabled.Scan(&mfaEnabled2); err != nil {
-				return c.JSON(http.StatusLocked, returnData("Login failed", ""))
-			}
-		}
-
-		// Check if MFA is enabled else login failed
-		if mfaEnabled2 != "YES" {
-			return c.JSON(http.StatusLocked, returnData("Login failed\nPlease enable mfa", ""))
-		}
-		sessionkey := GenerateSessionKey(Email)
-		return c.JSON(http.StatusOK, returnData("Login OK", sessionkey))
 	}
+
+	// Check if MFA is enabled
+	var mfaEnabled2 string
+	db.QueryRow("SELECT mfaenabled FROM useraccounts.useracc WHERE email = $1", Email).Scan(&mfaEnabled2)
+
+	// Check if MFA is enabled else login failed
+	if mfaEnabled2 != "YES" {
+		return c.JSON(http.StatusLocked, returnData("Login failed\nPlease enable mfa", ""))
+	}
+
+	// Everything went fine then continue
+	sessionkey := GenerateSessionKey(Email)
+	return c.JSON(http.StatusOK, returnData("Login OK", sessionkey))
 }
 
 func Validate(c echo.Context) error {

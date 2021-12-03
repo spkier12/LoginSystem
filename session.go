@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/rand"
-	"os"
 	"time"
 )
 
@@ -38,34 +37,34 @@ func CheckIfExist(key string) string {
 	month := time.Now().Month()
 	day := time.Now().Day()
 
-	rows, _ := db.Query("SELECT idec FROM useraccounts.sessions WHERE sessiontoken=$1", key)
+	rows, err := db.Query("SELECT idec FROM useraccounts.sessions WHERE sessiontoken=$1", key)
+	if err != nil {
+		fmt.Print("There was a error connecting to database...")
+		return ""
+	}
 
 	var email string
 	for rows.Next() {
 		if err := rows.Scan(&email); err != nil {
-			return "Scanning failed"
+			return ""
 		}
 	}
 
 	// check if date is correct
 	if email != "" {
-		rows, err := db.Query("SELECT added FROM useraccounts.sessions WHERE sessiontoken=$1", key)
-		if err != nil {
-			fmt.Print(err)
-			os.Exit(1)
-		}
+		rows, _ := db.Query("SELECT added FROM useraccounts.sessions WHERE sessiontoken=$1", key)
 
 		var timer string
 		for rows.Next() {
 			if err := rows.Scan(&timer); err != nil {
-				return "Scanning failed"
+				return ""
 			}
 		}
 
 		if timer == fmt.Sprint(year)+" "+fmt.Sprint(month)+" "+fmt.Sprint(day) {
-			return "Everything went well"
+			return email
 		}
 	}
 
-	return "Here is your email but token is invalid" + email
+	return "Here is your email but token is invalid\r" + email
 }
