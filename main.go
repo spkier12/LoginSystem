@@ -4,10 +4,12 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	_ "github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var db *sql.DB
@@ -30,6 +32,8 @@ func InitDB() (*sql.DB, error) {
 }
 
 func main() {
+
+	test()
 	DB, err := InitDB()
 	db = DB
 
@@ -46,9 +50,28 @@ func main() {
 
 	e := echo.New()
 	e.Use(middleware.CORS())
-	e.GET("/Create/:email/:password", Create)
-	e.GET("/EnableMFA/:email/:key", EnableMFA)
-	e.GET("/Login/:email/:key/:id", Login)
-	e.GET("/Validate/:id", Validate)
-	e.Start(":5001")
+
+	// User management
+	e.GET("/Create/:email/:password", Create)  // Create a new user account unless it exists
+	e.GET("/EnableMFA/:email/:key", EnableMFA) // Enable MFA so that user can login, this is mandatory.
+	e.GET("/Login/:email/:key/:id", Login)     // Login to the user account and get a token in return Valid until next day
+	e.GET("/Validate/:id", Validate)           // Check if token is valid
+
+	// Role management
+	e.GET("/Createrole/:role/:key", CreateRole) // Create a role where the user who creates it is the owner
+	e.GET("/Deleterole/:role/:key", DeleteRole) // Delete a role if owner owns it
+	e.Start(":5001")                            // Start the server
+}
+
+// Test response time
+func test() {
+	a := time.Now()
+	pass, _ := bcrypt.GenerateFromPassword([]byte("password"), 5)
+	b := time.Now()
+	bcrypt.CompareHashAndPassword(pass, []byte("password"))
+	c := time.Now()
+	encrypt := b.Sub(a)
+	decrypt := c.Sub(b)
+	fmt.Println("encrypt: ", encrypt)
+	fmt.Println("decrypt: ", decrypt)
 }

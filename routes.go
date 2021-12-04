@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/pquerna/otp/totp"
@@ -30,19 +31,19 @@ func Create(c echo.Context) error {
 	})
 
 	// Create password
-	hash, _ := bcrypt.GenerateFromPassword([]byte(Pass), bcrypt.DefaultCost)
+	hash, _ := bcrypt.GenerateFromPassword([]byte(Pass), 5)
 
 	// Create user account
 	res, _ := db.Exec("INSERT INTO useraccounts.useracc VALUES($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING", storedUser*len(Email), string(hash), key.Secret()+"-"+fmt.Sprint(storedUser*len(Email)*900), "NO", Email)
 	if d, _ := res.RowsAffected(); d < 1 {
-		return c.JSON(http.StatusConflict, returnData("User account exists", ""))
+		return c.String(http.StatusConflict, "-")
 	}
 
 	// Create QR code
 	image, _ := key.Image(128, 128)
 	buf := new(bytes.Buffer)
 	jpeg.Encode(buf, image, nil)
-	return c.JSON(http.StatusCreated, returnData("User account created!", buf.String()))
+	return c.String(http.StatusCreated, buf.String())
 }
 
 // If MFA is disabled then account is locked and signin will return wrong username/password
@@ -72,6 +73,7 @@ func EnableMFA(c echo.Context) error {
 
 // Check if user login is valid and create a session token valid for 24 hours
 func Login(c echo.Context) error {
+
 	// Get the values from parameter
 	Email := c.Param("email")
 	Key := c.Param("key")
@@ -79,40 +81,40 @@ func Login(c echo.Context) error {
 
 	// Get the Key in database
 	var keysfound string
-	db.QueryRow("SELECT mfakey FROM useraccounts.useracc WHERE email = $1", Email).Scan(&keysfound)
+	var passfromdb string
+	var mfaEnabled2 string
+
+	db.QueryRow("SELECT mfakey, uid, mfaenabled FROM useraccounts.useracc WHERE email = $1", Email).Scan(&keysfound, &passfromdb, &mfaEnabled2)
 
 	// Verify if key is valid and update the database with the correct value for mfaenabled
 	if !totp.Validate(Key, strings.Split(keysfound, "-")[0]) {
 		return c.JSON(http.StatusLocked, returnData("Login failed", ""))
 	}
 
-	// Get the ID in database
-	var passfromdb string
-	db.QueryRow("SELECT uid FROM useraccounts.useracc WHERE email = $1", Email).Scan(&passfromdb)
-
-	// Check agenst hashed password in db and generate a session token if valid
-	if err := bcrypt.CompareHashAndPassword([]byte(passfromdb), []byte(pass)); err != nil {
-		fmt.Print(err)
-		return c.JSON(http.StatusForbidden, returnData("Login failed", ""))
-	}
-
-	// Check if MFA is enabled
-	var mfaEnabled2 string
-	db.QueryRow("SELECT mfaenabled FROM useraccounts.useracc WHERE email = $1", Email).Scan(&mfaEnabled2)
-
 	// Check if MFA is enabled else login failed
 	if mfaEnabled2 != "YES" {
 		return c.JSON(http.StatusLocked, returnData("Login failed\nPlease enable mfa", ""))
 	}
 
+	// time from function start
+	timestart := time.Now()
+
+	// Check agenst hashed password in db and generate a session token if valid
+	if err := bcrypt.CompareHashAndPassword([]byte(passfromdb), []byte(pass)); err != nil {
+		return c.JSON(http.StatusForbidden, returnData("Login failed", ""))
+	}
+
+	// Time elapsed
+	fmt.Print("\nLogin took: \r" + time.Since(timestart).String())
+
 	// Everything went fine then continue
-	sessionkey := GenerateSessionKey(Email)
-	return c.JSON(http.StatusOK, returnData("Login OK", sessionkey))
+	return c.JSON(http.StatusOK, returnData("Login OK", GenerateSessionKey(Email)))
 }
 
+// Check if sessionkey is valid
 func Validate(c echo.Context) error {
 	key := c.Param("id")
-	return c.String(http.StatusAccepted, CheckIfExist(key))
+	return c.JSON(http.StatusAccepted, returnData(CheckIfExist(key)))
 }
 
 // Easy function to generate data in return-

@@ -30,41 +30,26 @@ func GenerateSessionKey(email string) string {
 }
 
 // Check if token has not expired
-func CheckIfExist(key string) string {
+func CheckIfExist(key string) (string, string) {
 
 	// Get date
 	year := time.Now().Year()
 	month := time.Now().Month()
 	day := time.Now().Day()
 
-	rows, err := db.Query("SELECT idec FROM useraccounts.sessions WHERE sessiontoken=$1", key)
-	if err != nil {
-		fmt.Print("There was a error connecting to database...")
-		return ""
-	}
-
+	// Find data in DB
 	var email string
-	for rows.Next() {
-		if err := rows.Scan(&email); err != nil {
-			return ""
-		}
+	var timer string
+	db.QueryRow("SELECT idec, added FROM useraccounts.sessions WHERE sessiontoken=$1", key).Scan(&email, &timer)
+
+	// Check if email is found if not the key dosnt exists
+	if email == "" {
+		return "Invalid key", ""
 	}
 
-	// check if date is correct
-	if email != "" {
-		rows, _ := db.Query("SELECT added FROM useraccounts.sessions WHERE sessiontoken=$1", key)
-
-		var timer string
-		for rows.Next() {
-			if err := rows.Scan(&timer); err != nil {
-				return ""
-			}
-		}
-
-		if timer == fmt.Sprint(year)+" "+fmt.Sprint(month)+" "+fmt.Sprint(day) {
-			return email
-		}
+	if timer == fmt.Sprint(year)+" "+fmt.Sprint(month)+" "+fmt.Sprint(day) {
+		return "Login OK\r", email
 	}
 
-	return "Here is your email but token is invalid\r" + email
+	return "Invalid key", ""
 }
