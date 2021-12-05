@@ -35,27 +35,15 @@ func CreateRole(c echo.Context) error {
 }
 
 // Delete the role from database
-// I will not remove existing members but role won't be accessible anymore
+// It will not remove existing members but role won't be accessible anymore
 func DeleteRole(c echo.Context) error {
 	key := c.Param("key")
 	role := c.Param("role")
 
 	// check if token is valid
-	message, data := CheckIfExist(key)
-	if data == "" {
-		fmt.Print("\n")
-		fmt.Print(message)
-		return c.JSON(http.StatusOK, returnData("Invalid login", ""))
-	}
-
-	// Check if user owns the role
-	var UserRole string
-	db.QueryRow("SELECT rolename FROM useraccounts.roles WHERE email=$1", data).Scan(&UserRole)
-
-	// Is the role correct?
-	if !strings.EqualFold(UserRole, role) {
-		fmt.Print(UserRole, "\r", role)
-		return c.JSON(http.StatusOK, returnData("Role does not exists or is not owned by you", ""))
+	err := UserHasRole(key, role)
+	if err != nil {
+		return c.JSON(http.StatusOK, returnData("Could not delete role\nAre you the owner?", ""))
 	}
 
 	// Delete from database delete nothing if role is not found under owners name/email
@@ -66,4 +54,55 @@ func DeleteRole(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, returnData("Role has been deleted", ""))
+}
+
+// Check if user has a certain role
+func UserHasRole(key string, role string) error {
+
+	// check if token is valid
+	message, data := CheckIfExist(key)
+	if data == "" {
+		fmt.Print("\n")
+		fmt.Print(message)
+		return fmt.Errorf("key invalid")
+	}
+
+	// Check if user owns the role
+	var UserRole string
+	db.QueryRow("SELECT rolename FROM useraccounts.roles WHERE email=$1", data).Scan(&UserRole)
+
+	// Is the role correct?
+	if !strings.EqualFold(UserRole, role) {
+		fmt.Print(UserRole, "\r", role)
+		return fmt.Errorf("role is not owned by you")
+	}
+
+	return nil
+}
+
+// If the user is the owner of role then he can invite peolpe to the role either my email or ID
+// And the user himself has to accept the invite before he joins the role.
+func InviteRole(c echo.Context) error {
+	key := c.Param("key")
+	email := c.Param("email")
+	role := c.Param("role")
+
+	// Check if key is valid
+	// Check if user owns the role
+	err := UserHasRole(key, role)
+	if err != nil {
+		return c.JSON(http.StatusLocked, returnData("You are not the owner of the role or your login has expired", ""))
+	}
+
+	sql, err := db.Exec("INSERT INTO useraccounts.invites VALUES ($1, $2)", email, role)
+	if d, _ := sql.RowsAffected(); d < 1 {
+		return c.JSON(http.StatusLocked, returnData("Error was risen trying to invite user", ""))
+	}
+
+	if err != nil {
+		return c.JSON(http.StatusLocked, returnData("Error was risen trying to invite user", ""))
+	}
+
+	return c.JSON(http.StatusOK, returnData("User was invited to role/group", ""))
+
 }

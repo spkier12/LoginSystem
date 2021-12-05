@@ -58,9 +58,10 @@ func main() {
 	e.GET("/Validate/:id", Validate)           // Check if token is valid
 
 	// Role management
-	e.GET("/Createrole/:role/:key", CreateRole) // Create a role where the user who creates it is the owner
-	e.GET("/Deleterole/:role/:key", DeleteRole) // Delete a role if owner owns it
-	e.Start(":5001")                            // Start the server
+	e.GET("/Createrole/:role/:key", CreateRole)        // Create a role where the user who creates it is the owner
+	e.GET("/Deleterole/:role/:key", DeleteRole)        // Delete a role if owner owns it
+	e.GET("/Inviterole/:role/:email/:key", InviteRole) // Invite the user to join role
+	e.Start(":5001")                                   // Start the server
 }
 
 // Test response time
