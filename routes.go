@@ -18,7 +18,6 @@ import (
 
 // Random Seed used to create UID at a later date
 var storedUser int = rand.Intn(9000)
-var whitelist [2]string = [2]string{"udips", "admin"}
 
 // Create a new user account in database and check if not exists
 func Create(c echo.Context) error {

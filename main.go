@@ -54,6 +54,6 @@ func main() {
 	e.GET("/Createrole/:role/:key", CreateRole)        // Create a role where the user who creates it is the owner
 	e.GET("/Deleterole/:role/:key", DeleteRole)        // Delete a role if owner owns it
 	e.GET("/Inviterole/:role/:email/:key", InviteRole) // Invite the user to join role
-	e.GET("/Checkrole/:role/:email", InviteRole)       // Check if user is part of a role
+	e.GET("/Checkrole/:role/:email", CheckRole)        // Check if user is part of a role
 	e.Start(":5001")                                   // Start the server
 }
