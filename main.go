@@ -3,13 +3,10 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"os"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	_ "github.com/lib/pq"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var db *sql.DB
@@ -33,16 +30,12 @@ func InitDB() (*sql.DB, error) {
 
 func main() {
 
-	test()
-	DB, err := InitDB()
+	DB, _ := InitDB()
 	db = DB
 
-	// Check if DB has errors
-	if err != nil {
-		fmt.Print("Database error exiting..")
-		os.Exit(1)
-	} else {
-		fmt.Print("Database up and running.. \n")
+	err2 := db.Ping()
+	if err2 != nil {
+		fmt.Print("Database failed ping test...")
 	}
 
 	// Mas creation test towards DB
@@ -61,18 +54,6 @@ func main() {
 	e.GET("/Createrole/:role/:key", CreateRole)        // Create a role where the user who creates it is the owner
 	e.GET("/Deleterole/:role/:key", DeleteRole)        // Delete a role if owner owns it
 	e.GET("/Inviterole/:role/:email/:key", InviteRole) // Invite the user to join role
+	e.GET("/Checkrole/:role/:email", InviteRole)       // Check if user is part of a role
 	e.Start(":5001")                                   // Start the server
-}
-
-// Test response time
-func test() {
-	a := time.Now()
-	pass, _ := bcrypt.GenerateFromPassword([]byte("password"), 5)
-	b := time.Now()
-	bcrypt.CompareHashAndPassword(pass, []byte("password"))
-	c := time.Now()
-	encrypt := b.Sub(a)
-	decrypt := c.Sub(b)
-	fmt.Println("encrypt: ", encrypt)
-	fmt.Println("decrypt: ", decrypt)
 }

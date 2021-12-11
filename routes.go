@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
@@ -17,6 +18,7 @@ import (
 
 // Random Seed used to create UID at a later date
 var storedUser int = rand.Intn(9000)
+var whitelist [2]string = [2]string{"udips", "admin"}
 
 // Create a new user account in database and check if not exists
 func Create(c echo.Context) error {
@@ -86,14 +88,13 @@ func Login(c echo.Context) error {
 
 	db.QueryRow("SELECT mfakey, uid, mfaenabled FROM useraccounts.useracc WHERE email = $1", Email).Scan(&keysfound, &passfromdb, &mfaEnabled2)
 
-	// Verify if key is valid and update the database with the correct value for mfaenabled
-	if !totp.Validate(Key, strings.Split(keysfound, "-")[0]) {
-		return c.JSON(http.StatusLocked, returnData("Login failed", ""))
-	}
+	// If mfaenabled == "NO" then don't check for key
+	if mfaEnabled2 == "YES" {
 
-	// Check if MFA is enabled else login failed
-	if mfaEnabled2 != "YES" {
-		return c.JSON(http.StatusLocked, returnData("Login failed\nPlease enable mfa", ""))
+		// Verify if key is valid and update the database with the correct value for mfaenabled
+		if !totp.Validate(Key, strings.Split(keysfound, "-")[0]) {
+			return c.JSON(http.StatusLocked, returnData("Login failed", ""))
+		}
 	}
 
 	// time from function start

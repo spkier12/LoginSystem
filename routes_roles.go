@@ -80,8 +80,8 @@ func UserHasRole(key string, role string) error {
 	return nil
 }
 
-// If the user is the owner of role then he can invite peolpe to the role either my email or ID
-// And the user himself has to accept the invite before he joins the role.
+// If the user is the owner of role then he can invite peolpe to the role either my email.
+// If user was invited then he has access to the website that requires the role.
 func InviteRole(c echo.Context) error {
 	key := c.Param("key")
 	email := c.Param("email")
@@ -105,4 +105,18 @@ func InviteRole(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, returnData("User was invited to role/group", ""))
 
+}
+
+// Check what role user have
+func CheckRole(c echo.Context) error {
+	email := c.Param("email")
+	role := c.Param("role")
+
+	dbrole := ""
+	db.QueryRow("SELECT rolename FROM useraccounts.roles WHERE email=$1", email).Scan(&dbrole)
+
+	if strings.EqualFold(role, dbrole) {
+		return c.JSON(http.StatusOK, returnData("User has role", "OK"))
+	}
+	return c.JSON(http.StatusOK, returnData("User does not have role", "NO"))
 }
