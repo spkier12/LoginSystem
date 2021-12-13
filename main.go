@@ -48,7 +48,7 @@ func main() {
 	e.GET("/Create/:email/:password", Create)  // Create a new user account unless it exists
 	e.GET("/EnableMFA/:email/:key", EnableMFA) // Enable MFA so that user can login, this is mandatory.
 	e.GET("/Login/:email/:key/:id", Login)     // Login to the user account and get a token in return Valid until next day
-	e.GET("/Validate/:id", Validate)           // Check if token is valid
+	e.GET("/Validate", Validate)               // Check if token is valid
 
 	// Role management
 	e.GET("/Createrole/:role/:key", CreateRole)        // Create a role where the user who creates it is the owner

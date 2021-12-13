@@ -1,10 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"image/jpeg"
+	"io"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -25,26 +24,16 @@ func Create(c echo.Context) error {
 	Email := c.Param("email")
 	Pass := c.Param("password")
 
-	// Generate Authenticator keys
-	key, _ := totp.Generate(totp.GenerateOpts{
-		Issuer:      "UB-Systems",
-		AccountName: Email,
-	})
-
 	// Create password
 	hash, _ := bcrypt.GenerateFromPassword([]byte(Pass), 5)
 
 	// Create user account
-	res, _ := db.Exec("INSERT INTO useraccounts.useracc VALUES($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING", storedUser*len(Email), string(hash), key.Secret()+"-"+fmt.Sprint(storedUser*len(Email)*900), "NO", Email)
+	res, _ := db.Exec("INSERT INTO useraccounts.useracc VALUES($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING", storedUser*len(Email), string(hash), "invalid", "NO", Email)
 	if d, _ := res.RowsAffected(); d < 1 {
-		return c.String(http.StatusConflict, "-")
+		return c.String(http.StatusConflict, returnData("User account exists", ""))
 	}
 
-	// Create QR code
-	image, _ := key.Image(128, 128)
-	buf := new(bytes.Buffer)
-	jpeg.Encode(buf, image, nil)
-	return c.String(http.StatusCreated, buf.String())
+	return c.String(http.StatusCreated, returnData("User account was created", "1"))
 }
 
 // If MFA is disabled then account is locked and signin will return wrong username/password
@@ -59,7 +48,7 @@ func EnableMFA(c echo.Context) error {
 	db.QueryRow("SELECT mfakey FROM useraccounts.useracc WHERE email = $1", Email).Scan(&keysfound)
 
 	// Verify if key is valid and update the database with the correct value for mfaenabled
-	if totp.Validate(Key, strings.Split(keysfound, "-")[0]) {
+	if totp.Validate(Key, keysfound) {
 		res, err := db.Exec("UPDATE useraccounts.useracc SET mfaenabled = 'YES' WHERE email=$1", Email)
 		if err != nil {
 			return c.JSON(http.StatusLocked, returnData("Error in database try agen later!", ""))
@@ -107,14 +96,41 @@ func Login(c echo.Context) error {
 	// Time elapsed
 	fmt.Print("\nLogin took: \r" + time.Since(timestart).String())
 
-	// Everything went fine then continue
-	return c.JSON(http.StatusOK, returnData("Login OK", GenerateSessionKey(Email)))
+	// Set cookie
+	cookie := new(http.Cookie)
+	cookie.Name = "token"
+	cookie.Value = GenerateSessionKey(Email)
+	cookie.Secure = false
+	cookie.HttpOnly = false
+	cookie.Path = "/"
+	c.SetCookie(cookie)
+	return c.JSON(http.StatusOK, returnData("Login OK", "1"))
 }
 
 // Check if sessionkey is valid
 func Validate(c echo.Context) error {
-	key := c.Param("id")
-	return c.JSON(http.StatusAccepted, returnData(CheckIfExist(key)))
+	token, err := c.Cookie("token")
+	if err != nil {
+		return c.JSON(http.StatusAccepted, returnData("Invalid key", ""))
+	}
+	return c.JSON(http.StatusAccepted, returnData(CheckIfExist(token.Value)))
+}
+
+// Easy function to recive data in return-
+func ReciveData(c echo.Context) (string, string, string, string, string) {
+	type MyData struct {
+		StoredUsername string
+		StoredAuthkey  string
+		StoredPassword string
+		StoredFile     string
+		StoredRole     string
+	}
+
+	var myData MyData
+	data, _ := (io.ReadAll(c.Request().Body))
+	json.Unmarshal(data, &myData)
+
+	return myData.StoredUsername, myData.StoredAuthkey, myData.StoredPassword, myData.StoredFile, myData.StoredRole
 }
 
 // Easy function to generate data in return-
