@@ -50,15 +50,15 @@ func main() {
 	}))
 
 	// User management
-	e.GET("/Create/:email/:password", Create)  // Create a new user account unless it exists
+	e.POST("/Create", Create)                  // Create a new user account unless it exists
 	e.GET("/EnableMFA/:email/:key", EnableMFA) // Enable MFA so that user can login, this is mandatory.
-	e.GET("/Login/:email/:key/:id", Login)     // Login to the user account and get a token in return Valid until next day
+	e.POST("/Login", Login)                    // Login to the user account and get a token in return Valid until next day
 	e.GET("/Validate", Validate)               // Check if token is valid
 
 	// Role management
-	e.GET("/Createrole/:role/:key", CreateRole)        // Create a role where the user who creates it is the owner
-	e.GET("/Deleterole/:role/:key", DeleteRole)        // Delete a role if owner owns it
-	e.GET("/Inviterole/:role/:email/:key", InviteRole) // Invite the user to join role
-	e.GET("/Checkrole/:role/:email", CheckRole)        // Check if user is part of a role
-	e.Start(":5001")                                   // Start the server
+	e.GET("/Createrole/:role", CreateRole)        // Create a role where the user who creates it is the owner
+	e.GET("/Deleterole/:role", DeleteRole)        // Delete a role if owner owns it
+	e.GET("/Inviterole/:role/:email", InviteRole) // Invite the user to join role
+	e.GET("/Checkrole/:role/:email", CheckRole)   // Check if user is part of a role
+	e.Start(":5001")                              // Start the server
 }

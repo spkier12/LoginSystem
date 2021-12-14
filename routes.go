@@ -21,11 +21,12 @@ var storedUser int = rand.Intn(9000)
 // Create a new user account in database and check if not exists
 func Create(c echo.Context) error {
 	storedUser++
-	Email := c.Param("email")
-	Pass := c.Param("password")
+	// Get the values from parameter
+	Email, _, Pass, _, _ := ReciveData(c)
+	fmt.Print(Email + Pass)
 
 	// Create password
-	hash, _ := bcrypt.GenerateFromPassword([]byte(Pass), 5)
+	hash, _ := bcrypt.GenerateFromPassword([]byte(Pass), 3)
 
 	// Create user account
 	res, _ := db.Exec("INSERT INTO useraccounts.useracc VALUES($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING", storedUser*len(Email), string(hash), "invalid", "NO", Email)
@@ -39,9 +40,9 @@ func Create(c echo.Context) error {
 // If MFA is disabled then account is locked and signin will return wrong username/password
 // To enable please scan QR code and write the key back to use
 func EnableMFA(c echo.Context) error {
+
 	// Get the values from parameter
-	Email := c.Param("email")
-	Key := c.Param("key")
+	Email, Key, _, _, _ := ReciveData(c)
 
 	// Get the Key in database
 	var keysfound string
@@ -65,9 +66,7 @@ func EnableMFA(c echo.Context) error {
 func Login(c echo.Context) error {
 
 	// Get the values from parameter
-	Email := c.Param("email")
-	Key := c.Param("key")
-	pass := c.Param("id")
+	Email, Key, pass, _, _ := ReciveData(c)
 
 	// Get the Key in database
 	var keysfound string
@@ -78,7 +77,6 @@ func Login(c echo.Context) error {
 
 	// If mfaenabled == "NO" then don't check for key
 	if mfaEnabled2 == "YES" {
-
 		// Verify if key is valid and update the database with the correct value for mfaenabled
 		if !totp.Validate(Key, strings.Split(keysfound, "-")[0]) {
 			return c.JSON(http.StatusLocked, returnData("Login failed", ""))
